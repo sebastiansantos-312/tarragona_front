@@ -3,7 +3,7 @@ import Layout from "./components/Layout";
 import FiestasPage from "./pages/FiestasPage";
 import ClientesPage from "./pages/ClientesPage";
 import ReportesPage from "./pages/ReportesPage";
-import "./App.css";
+import "./index.css";
 
 function App() {
   return (

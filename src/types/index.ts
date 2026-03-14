@@ -13,7 +13,7 @@ export interface FiestaRequest {
   cedula: string;
   numInvitados: number;
   horasDuracion: number;
-  fechaFiesta: string; // "YYYY-MM-DD"
+  fechaFiesta: string;
 }
 
 export interface FiestaResponse {

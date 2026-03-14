@@ -1,8 +1,6 @@
 import type {
-    ClienteRequest,
-    ClienteResponse,
-    FiestaRequest,
-    FiestaResponse,
+    ClienteRequest, ClienteResponse,
+    FiestaRequest, FiestaResponse,
     ReporteMesResponse,
 } from "../types";
 
@@ -28,59 +26,40 @@ async function http<T>(url: string, options?: RequestInit): Promise<T> {
     return res.json();
 }
 
-/* ── Clientes ─────────────────────────────────────────── */
+export const listarClientes = () =>
+    http<ClienteResponse[]>(`${BASE}/clientes`);
 
-export function listarClientes() {
-    return http<ClienteResponse[]>(`${BASE}/clientes`);
-}
-
-export function crearCliente(data: ClienteRequest) {
-    return http<ClienteResponse>(`${BASE}/clientes`, {
+export const crearCliente = (data: ClienteRequest) =>
+    http<ClienteResponse>(`${BASE}/clientes`, {
         method: "POST",
         body: JSON.stringify(data),
     });
-}
 
-export function buscarCliente(cedula: string) {
-    return http<ClienteResponse>(`${BASE}/clientes/${cedula}`);
-}
+export const buscarCliente = (cedula: string) =>
+    http<ClienteResponse>(`${BASE}/clientes/${cedula}`);
 
-/* ── Fiestas ──────────────────────────────────────────── */
-
-export function listarFiestas(anio?: number, mes?: number) {
-    const params = new URLSearchParams();
-    if (anio !== undefined) params.set("anio", String(anio));
-    if (mes !== undefined) params.set("mes", String(mes));
-    const qs = params.toString();
+export const listarFiestas = (anio?: number, mes?: number) => {
+    const p = new URLSearchParams();
+    if (anio) p.set("anio", String(anio));
+    if (mes) p.set("mes", String(mes));
+    const qs = p.toString();
     return http<FiestaResponse[]>(`${BASE}/fiestas${qs ? `?${qs}` : ""}`);
-}
+};
 
-export function obtenerFiesta(id: string) {
-    return http<FiestaResponse>(`${BASE}/fiestas/${id}`);
-}
-
-export function crearFiesta(data: FiestaRequest) {
-    return http<FiestaResponse>(`${BASE}/fiestas`, {
+export const crearFiesta = (data: FiestaRequest) =>
+    http<FiestaResponse>(`${BASE}/fiestas`, {
         method: "POST",
         body: JSON.stringify(data),
     });
-}
 
-export function actualizarFiesta(id: string, data: FiestaRequest) {
-    return http<FiestaResponse>(`${BASE}/fiestas/${id}`, {
+export const actualizarFiesta = (id: string, data: FiestaRequest) =>
+    http<FiestaResponse>(`${BASE}/fiestas/${id}`, {
         method: "PUT",
         body: JSON.stringify(data),
     });
-}
 
-export function eliminarFiesta(id: string) {
-    return http<void>(`${BASE}/fiestas/${id}`, { method: "DELETE" });
-}
+export const eliminarFiesta = (id: string) =>
+    http<void>(`${BASE}/fiestas/${id}`, { method: "DELETE" });
 
-/* ── Reportes ─────────────────────────────────────────── */
-
-export function getReporteMes(anio: number, mes: number) {
-    return http<ReporteMesResponse>(
-        `${BASE}/reportes/mes?anio=${anio}&mes=${mes}`
-    );
-}
+export const getReporteMes = (anio: number, mes: number) =>
+    http<ReporteMesResponse>(`${BASE}/reportes/mes?anio=${anio}&mes=${mes}`);
