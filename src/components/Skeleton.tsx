@@ -1,36 +1,18 @@
-interface SkeletonProps {
-  readonly width?: string;
-  readonly height?: string;
-  readonly className?: string;
+export function Skeleton({ w = "100%", h = "14px" }: { w?: string; h?: string }) {
+  return <div className="skeleton" style={{ width: w, height: h }} />;
 }
 
-export function Skeleton({ width = "100%", height = "16px", className = "" }: SkeletonProps) {
-  return <div className={`skeleton ${className}`} style={{ width, height }} />;
-}
-
-export function TableSkeleton({ rows = 5, cols = 5 }: { readonly rows?: number; readonly cols?: number }) {
+export function TableSkeleton({ rows = 5, cols = 5 }: { rows?: number; cols?: number }) {
   return (
     <div className="card">
-      <div className="table-wrap">
+      <div className="tbl-wrap">
         <table>
           <thead>
-            <tr>
-              {Array.from({ length: cols }, (_, i) => (
-                <th key={`h-${i}`}>
-                  <Skeleton height="12px" width={i === 0 ? "120px" : "80px"} />
-                </th>
-              ))}
-            </tr>
+            <tr>{Array.from({ length: cols }, (_, i) => <th key={i}><Skeleton h="10px" w={i === 0 ? "100px" : "64px"} /></th>)}</tr>
           </thead>
           <tbody>
             {Array.from({ length: rows }, (_, r) => (
-              <tr key={`r-${r}`}>
-                {Array.from({ length: cols }, (_, c) => (
-                  <td key={`c-${c}`}>
-                    <Skeleton height="14px" width={c === 0 ? "140px" : "70px"} />
-                  </td>
-                ))}
-              </tr>
+              <tr key={r}>{Array.from({ length: cols }, (_, c) => <td key={c}><Skeleton h="13px" w={c === 0 ? "120px" : "60px"} /></td>)}</tr>
             ))}
           </tbody>
         </table>
@@ -43,11 +25,9 @@ export function StatsSkeleton() {
   return (
     <div className="stat-grid">
       {Array.from({ length: 4 }, (_, i) => (
-        <div key={`s-${i}`} className="card" style={{ padding: "20px 22px" }}>
-          <Skeleton height="10px" width="80px" />
-          <div style={{ marginTop: 10 }}>
-            <Skeleton height="32px" width="100px" />
-          </div>
+        <div key={i} className="card" style={{ padding: "18px 20px" }}>
+          <Skeleton h="9px" w="70px" />
+          <div style={{ marginTop: 10 }}><Skeleton h="28px" w="90px" /></div>
         </div>
       ))}
     </div>

@@ -5,149 +5,94 @@ import { toast } from "../components/Toast";
 import { StatsSkeleton } from "../components/Skeleton";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"] as const;
-const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
+const YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: 5 }, (_, i) => YEAR - i);
 
-const fmt = (n: number) =>
+const money = (n: number) =>
     new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(n);
 
-interface DonutProps {
-    readonly values: number[];
-    readonly colors: string[];
-    readonly size?: number;
-}
+const COLORS = ["#1fcc6a", "#5b5ef4", "#e8a020"] as const;
 
-function DonutChart({ values, colors, size = 120 }: DonutProps) {
+function Donut({ values, size = 116 }: { values: number[]; size?: number }) {
     const total = values.reduce((a, b) => a + b, 0);
-    if (total === 0) {
-        return <div style={{ width: size, height: size, borderRadius: "50%", background: "var(--surface-3)" }} />;
-    }
+    if (!total) return <div style={{ width: size, height: size, borderRadius: "50%", background: "var(--surface-3)" }} />;
 
-    const radius = (size / 2) * 0.85;
+    const r = (size / 2) * 0.82;
     const cx = size / 2;
     const cy = size / 2;
-    const strokeWidth = size * 0.15;
+    const sw = size * 0.16;
 
-    const polarToCartesian = (angle: number) => {
-        const rad = (angle * Math.PI) / 180;
-        return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+    const pt = (a: number) => ({ x: cx + r * Math.cos((a * Math.PI) / 180), y: cy + r * Math.sin((a * Math.PI) / 180) });
+    const arc = (s: number, e: number) => {
+        const p1 = pt(e - 0.01), p2 = pt(s);
+        return `M ${p1.x} ${p1.y} A ${r} ${r} 0 ${e - s > 180 ? 1 : 0} 0 ${p2.x} ${p2.y}`;
     };
 
-    const describeArc = (startAngle: number, endAngle: number) => {
-        const start = polarToCartesian(endAngle - 0.01);
-        const end = polarToCartesian(startAngle);
-        const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-        return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 0 ${end.x} ${end.y}`;
-    };
-
-    let offset = -90;
-    const segments = values.map((v, i) => {
-        const angle = (v / total) * 360;
-        const startAngle = offset;
-        offset += angle;
-        return { startAngle, angle, color: colors[i] };
-    });
-
+    let off = -90;
     return (
         <svg width={size} height={size} style={{ overflow: "visible" }}>
-            {segments.map((s, i) => (
-                <path
-                    key={colors[i]}
-                    d={describeArc(s.startAngle, s.startAngle + s.angle)}
-                    fill="none"
-                    stroke={s.color}
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="butt"
-                    opacity={0.9}
-                />
-            ))}
-            <circle cx={cx} cy={cy} r={radius - strokeWidth / 2 - 2} fill="var(--surface)" />
-            <text x={cx} y={cy - 6} textAnchor="middle" fontSize={size * 0.14} fontWeight={700} fill="var(--text)" fontFamily="DM Sans">
-                {total}
-            </text>
-            <text x={cx} y={cy + 12} textAnchor="middle" fontSize={size * 0.1} fill="var(--text-tertiary)" fontFamily="DM Sans">
-                fiestas
-            </text>
+            {values.map((v, i) => {
+                const angle = (v / total) * 360;
+                const d = arc(off, off + angle);
+                off += angle;
+                return <path key={i} d={d} fill="none" stroke={COLORS[i]} strokeWidth={sw} strokeLinecap="butt" opacity={0.85} />;
+            })}
+            <circle cx={cx} cy={cy} r={r - sw / 2 - 1} fill="var(--surface)" />
+            <text x={cx} y={cy - 4} textAnchor="middle" fontSize={size * 0.14} fontWeight={600} fill="var(--text)" fontFamily="Geist">{total}</text>
+            <text x={cx} y={cy + 12} textAnchor="middle" fontSize={size * 0.09} fill="var(--text-3)" fontFamily="Geist">fiestas</text>
         </svg>
     );
 }
 
-const CHART_COLORS = ["#22c55e", "#6366f1", "#f59e0b"] as const;
-
-interface BreakdownRow {
-    readonly label: string;
-    readonly value: number;
-    readonly color: string;
-    readonly badgeClass: string;
-}
-
 export default function ReportesPage() {
-    const [anio, setAnio] = useState(currentYear);
+    const [anio, setAnio] = useState(YEAR);
     const [mes, setMes] = useState(new Date().getMonth() + 1);
     const [reporte, setReporte] = useState<ReporteMesResponse | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const consultar = async (e: React.FormEvent<HTMLFormElement>) => {
+    const consultar = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        setReporte(null);
-        try {
-            const data = await getReporteMes(anio, mes);
-            setReporte(data);
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Error al obtener reporte");
-        } finally {
-            setLoading(false);
-        }
+        setLoading(true); setReporte(null);
+        try { setReporte(await getReporteMes(anio, mes)); }
+        catch (e) { toast.err(e instanceof Error ? e.message : "Error al obtener reporte"); }
+        finally { setLoading(false); }
     };
 
-    const total = reporte
-        ? reporte.fiestas1_3h + reporte.fiestas4_6h + reporte.fiestasMas6h
-        : 0;
-
-    const breakdown: BreakdownRow[] = reporte
-        ? [
-            { label: "1 – 3 horas", value: reporte.fiestas1_3h, color: CHART_COLORS[0], badgeClass: "badge-green" },
-            { label: "4 – 6 horas", value: reporte.fiestas4_6h, color: CHART_COLORS[1], badgeClass: "badge-indigo" },
-            { label: "Más de 6 horas", value: reporte.fiestasMas6h, color: CHART_COLORS[2], badgeClass: "badge-amber" },
-        ]
-        : [];
+    // Usa los campos camelCase correctos del back
+    const rows = reporte ? [
+        { label: "1 – 3 h", value: reporte.fiestas1a3h, color: COLORS[0], cls: "b-green" },
+        { label: "4 – 6 h", value: reporte.fiestas4a6h, color: COLORS[1], cls: "b-indigo" },
+        { label: "Más de 6 h", value: reporte.fiestasMas6h, color: COLORS[2], cls: "b-amber" },
+    ] : [];
+    const totalRows = rows.reduce((a, r) => a + r.value, 0);
 
     return (
-        <div className="animate-in">
+        <div className="ani">
             <div className="page-header">
                 <div>
                     <h1 className="page-title">Reportes</h1>
-                    <p className="page-subtitle">Análisis financiero mensual</p>
+                    <p className="page-sub">Análisis mensual</p>
                 </div>
             </div>
 
-            <div className="card card-padded" style={{ marginBottom: 24, maxWidth: 520 }}>
-                <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 16 }}>Seleccionar período</div>
+            {/* Selector */}
+            <div className="card card-p" style={{ marginBottom: 20, maxWidth: 480 }}>
                 <form onSubmit={e => void consultar(e)}>
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-                        <label className="form-label" style={{ flex: 1, minWidth: 120 }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+                        <label className="field" style={{ flex: 1, minWidth: 110 }}>
                             Año
-                            <select
-                                className="form-input"
-                                value={anio}
-                                onChange={e => setAnio(Number(e.target.value))}
-                            >
+                            <select className="input" value={anio} onChange={e => setAnio(Number(e.target.value))}>
                                 {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                             </select>
                         </label>
-                        <label className="form-label" style={{ flex: 1, minWidth: 140 }}>
+                        <label className="field" style={{ flex: 1, minWidth: 130 }}>
                             Mes
-                            <select
-                                className="form-input"
-                                value={mes}
-                                onChange={e => setMes(Number(e.target.value))}
-                            >
+                            <select className="input" value={mes} onChange={e => setMes(Number(e.target.value))}>
                                 {MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                             </select>
                         </label>
                         <button className="btn btn-primary" type="submit" disabled={loading}>
-                            {loading ? "Consultando…" : "Ver reporte"}
+                            {loading ? "Cargando…" : "Ver reporte"}
                         </button>
                     </div>
                 </form>
@@ -156,74 +101,68 @@ export default function ReportesPage() {
             {loading && <StatsSkeleton />}
 
             {reporte && (
-                <div className="animate-in">
-                    <div style={{ marginBottom: 20 }}>
-                        <span className="badge badge-indigo" style={{ fontSize: "0.8rem", padding: "5px 14px" }}>
+                <div className="ani">
+                    <div style={{ marginBottom: 18 }}>
+                        <span className="badge b-indigo" style={{ fontSize: "0.72rem", padding: "4px 12px" }}>
                             {MESES[reporte.mes - 1]} {reporte.anio}
                         </span>
                     </div>
 
+                    {/* Stats */}
                     <div className="stat-grid">
-                        <div className="stat-card stat-card-accent">
-                            <div className="stat-label">Total Ingresos</div>
-                            <div className="stat-value stat-value-accent" style={{ fontSize: "1.5rem" }}>
-                                {fmt(reporte.totalIngresos)}
-                            </div>
-                            <div className="stat-sub">Ingresos del período</div>
-                            <span className="stat-icon">💰</span>
+                        <div className="stat-card ac">
+                            <div className="s-label">Ingresos</div>
+                            <div className="s-value ac" style={{ fontSize: "1.4rem" }}>{money(reporte.totalIngresos)}</div>
+                            <div className="s-sub">Total del período</div>
+                            <span className="s-icon">💰</span>
                         </div>
                         <div className="stat-card">
-                            <div className="stat-label">Fiestas</div>
-                            <div className="stat-value">{reporte.totalFiestas}</div>
-                            <div className="stat-sub">Eventos realizados</div>
-                            <span className="stat-icon">🎉</span>
+                            <div className="s-label">Fiestas</div>
+                            <div className="s-value">{reporte.totalFiestas}</div>
+                            <div className="s-sub">Eventos realizados</div>
+                            <span className="s-icon">🎉</span>
                         </div>
                         <div className="stat-card">
-                            <div className="stat-label">Invitados</div>
-                            <div className="stat-value">{reporte.totalInvitados.toLocaleString()}</div>
-                            <div className="stat-sub">Total asistentes</div>
-                            <span className="stat-icon">👥</span>
+                            <div className="s-label">Invitados</div>
+                            <div className="s-value">{reporte.totalInvitados.toLocaleString()}</div>
+                            <div className="s-sub">Total asistentes</div>
+                            <span className="s-icon">👥</span>
                         </div>
                         <div className="stat-card">
-                            <div className="stat-label">Horas</div>
-                            <div className="stat-value">{reporte.totalHoras}</div>
-                            <div className="stat-sub">Horas de evento</div>
-                            <span className="stat-icon">⏱️</span>
+                            <div className="s-label">Horas</div>
+                            <div className="s-value">{Number(reporte.totalHoras).toLocaleString()}</div>
+                            <div className="s-sub">Horas de evento</div>
+                            <span className="s-icon">⏱️</span>
                         </div>
                     </div>
 
-                    <div className="card card-padded" style={{ marginBottom: 20 }}>
-                        <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 4 }}>Desglose por duración</div>
-                        <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: 20 }}>
-                            Distribución de fiestas según horas contratadas
+                    {/* Desglose */}
+                    <div className="card card-p" style={{ marginBottom: 16 }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>Desglose por duración</div>
+                        <div style={{ fontSize: "0.78rem", color: "var(--text-2)", marginBottom: 18 }}>
+                            Distribución según horas contratadas
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 40, flexWrap: "wrap" }}>
-                            <div style={{ flexShrink: 0 }}>
-                                <DonutChart
-                                    values={[reporte.fiestas1_3h, reporte.fiestas4_6h, reporte.fiestasMas6h]}
-                                    colors={[...CHART_COLORS]}
-                                    size={140}
-                                />
-                            </div>
-                            <div style={{ flex: 1, minWidth: 200 }}>
-                                {breakdown.map(({ label, value, color, badgeClass }) => {
-                                    const pct = total > 0 ? (value / total) * 100 : 0;
+                        <div style={{ display: "flex", alignItems: "center", gap: 36, flexWrap: "wrap" }}>
+                            <Donut values={rows.map(r => r.value)} size={130} />
+                            <div style={{ flex: 1, minWidth: 180 }}>
+                                {rows.map(({ label, value, color, cls }) => {
+                                    const pct = totalRows > 0 ? (value / totalRows) * 100 : 0;
                                     return (
-                                        <div key={label} style={{ marginBottom: 14 }}>
-                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                                                    <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>{label}</span>
+                                        <div key={label} style={{ marginBottom: 13 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
+                                                    <span style={{ fontSize: "0.8rem", color: "var(--text-2)" }}>{label}</span>
                                                 </div>
-                                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                    <span className={`badge ${badgeClass}`}>{value}</span>
-                                                    <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", fontFamily: "'DM Mono',monospace", minWidth: 36, textAlign: "right" }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                                    <span className={`badge ${cls}`}>{value}</span>
+                                                    <span className="mono" style={{ fontSize: "0.72rem", color: "var(--text-3)", minWidth: 32, textAlign: "right" }}>
                                                         {pct.toFixed(0)}%
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div className="progress-bar">
-                                                <div className="progress-fill" style={{ width: `${pct}%`, background: color }} />
+                                            <div className="prog-bar">
+                                                <div className="prog-fill" style={{ width: `${pct}%`, background: color }} />
                                             </div>
                                         </div>
                                     );
@@ -232,25 +171,19 @@ export default function ReportesPage() {
                         </div>
                     </div>
 
+                    {/* Promedios */}
                     {reporte.totalFiestas > 0 && (
-                        <div className="card card-padded">
-                            <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 16 }}>Promedios del período</div>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 12 }}>
-                                {([
-                                    { label: "Ingreso promedio", value: fmt(reporte.totalIngresos / reporte.totalFiestas) },
-                                    { label: "Invitados promedio", value: Math.round(reporte.totalInvitados / reporte.totalFiestas).toLocaleString() },
-                                    { label: "Horas promedio", value: `${(reporte.totalHoras / reporte.totalFiestas).toFixed(1)}h` },
-                                ] as const).map(({ label, value }) => (
-                                    <div key={label} style={{
-                                        background: "var(--surface-2)", border: "1px solid var(--border)",
-                                        borderRadius: "var(--radius-sm)", padding: "14px 16px",
-                                    }}>
-                                        <div style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-tertiary)", fontWeight: 600, marginBottom: 6 }}>
-                                            {label}
-                                        </div>
-                                        <div style={{ fontSize: "1.15rem", fontWeight: 700, letterSpacing: "-0.02em", fontFamily: "'DM Mono',monospace", color: "var(--text)" }}>
-                                            {value}
-                                        </div>
+                        <div className="card card-p">
+                            <div style={{ fontWeight: 600, marginBottom: 14 }}>Promedios</div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
+                                {[
+                                    { label: "Ingreso / fiesta", val: money(reporte.totalIngresos / reporte.totalFiestas) },
+                                    { label: "Invitados / fiesta", val: Math.round(reporte.totalInvitados / reporte.totalFiestas).toLocaleString() },
+                                    { label: "Horas / fiesta", val: `${(Number(reporte.totalHoras) / reporte.totalFiestas).toFixed(1)}h` },
+                                ].map(({ label, val }) => (
+                                    <div key={label} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "var(--r-sm)", padding: "13px 15px" }}>
+                                        <div style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-3)", fontWeight: 600, marginBottom: 5 }}>{label}</div>
+                                        <div className="mono" style={{ fontSize: "1.1rem", fontWeight: 600 }}>{val}</div>
                                     </div>
                                 ))}
                             </div>
@@ -260,11 +193,11 @@ export default function ReportesPage() {
             )}
 
             {!reporte && !loading && (
-                <div className="card">
-                    <div className="empty-state">
-                        <div className="empty-icon">📊</div>
+                <div className="card card-p">
+                    <div className="empty">
+                        <div className="empty-ico">📊</div>
                         <div className="empty-title">Selecciona un período</div>
-                        <div className="empty-sub">Elige el año y mes y haz clic en "Ver reporte"</div>
+                        <div className="empty-sub">Elige año y mes, luego haz clic en "Ver reporte"</div>
                     </div>
                 </div>
             )}

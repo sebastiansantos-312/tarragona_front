@@ -1,12 +1,14 @@
 export interface ClienteRequest {
   cedula: string;
   nombre: string;
+  telefono?: string;
 }
 
 export interface ClienteResponse {
-  id: string;
+  id: number;
   cedula: string;
   nombre: string;
+  telefono: string | null;
 }
 
 export interface FiestaRequest {
@@ -17,7 +19,7 @@ export interface FiestaRequest {
 }
 
 export interface FiestaResponse {
-  id: string;
+  id: number;
   cedulaContratante: string;
   nombreContratante: string;
   numInvitados: number;
@@ -35,7 +37,7 @@ export interface ReporteMesResponse {
   totalInvitados: number;
   totalHoras: number;
   totalIngresos: number;
-  fiestas1_3h: number;
-  fiestas4_6h: number;
+  fiestas1a3h: number;
+  fiestas4a6h: number;
   fiestasMas6h: number;
 }
