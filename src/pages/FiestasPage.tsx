@@ -4,7 +4,7 @@ import { listarFiestas, crearFiesta, actualizarFiesta, eliminarFiesta } from "..
 import { toast } from "../components/Toast";
 import { TableSkeleton } from "../components/Skeleton";
 
-const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"] as const;
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"] as const;
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
@@ -30,23 +30,26 @@ const getPricingLabel = (inv: number, hrs: number) => ({
 const EMPTY_FORM: FiestaRequest = { cedula: "", numInvitados: 50, horasDuracion: 3, fechaFiesta: "" };
 
 export default function FiestasPage() {
-    const [fiestas, setFiestas] = useState<FiestaResponse[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [showModal, setShowModal] = useState(false);
-    const [editId, setEditId] = useState<string | null>(null);
-    const [form, setForm] = useState<FiestaRequest>(EMPTY_FORM);
-    const [saving, setSaving] = useState(false);
-    const [deleting, setDeleting] = useState<string | null>(null);
-    const [filtroAnio, setFiltroAnio] = useState<number | "">("");
-    const [filtroMes, setFiltroMes] = useState<number | "">("");
-    const [confirmDelete, setConfirmDelete] = useState<FiestaResponse | null>(null);
+    const [fiestas, setFiestas]               = useState<FiestaResponse[]>([]);
+    const [loading, setLoading]               = useState(false);
+    const [showModal, setShowModal]           = useState(false);
+    const [editId, setEditId]                 = useState<string | null>(null);
+    const [form, setForm]                     = useState<FiestaRequest>(EMPTY_FORM);
+    // Raw string inputs so user can freely type/delete
+    const [invStr, setInvStr]                 = useState("50");
+    const [hrsStr, setHrsStr]                 = useState("3");
+    const [saving, setSaving]                 = useState(false);
+    const [deleting, setDeleting]             = useState<string | null>(null);
+    const [filtroAnio, setFiltroAnio]         = useState<number | "">("");
+    const [filtroMes, setFiltroMes]           = useState<number | "">("");
+    const [confirmDelete, setConfirmDelete]   = useState<FiestaResponse | null>(null);
 
     const cargar = async (anio?: number | "", mes?: number | "") => {
         setLoading(true);
         try {
             const data = await listarFiestas(
                 anio !== "" ? (anio as number) : undefined,
-                mes !== "" ? (mes as number) : undefined,
+                mes  !== "" ? (mes  as number) : undefined,
             );
             setFiestas(data);
         } catch (err) {
@@ -58,28 +61,45 @@ export default function FiestasPage() {
 
     useEffect(() => { void cargar(); }, []);
 
-    const openCreate = () => { setEditId(null); setForm(EMPTY_FORM); setShowModal(true); };
+    const openCreate = () => {
+        setEditId(null);
+        setForm(EMPTY_FORM);
+        setInvStr("50");
+        setHrsStr("3");
+        setShowModal(true);
+    };
 
     const openEdit = (f: FiestaResponse) => {
+        const hrs = parseFloat(String(f.horasDuracion));
+        const inv = Number(f.numInvitados);
         setEditId(f.id);
         setForm({
             cedula: f.cedulaContratante,
-            numInvitados: Number(f.numInvitados),
-            horasDuracion: parseFloat(String(f.horasDuracion)),
+            numInvitados: inv,
+            horasDuracion: hrs,
             fechaFiesta: f.fechaFiesta,
         });
+        setInvStr(String(inv));
+        setHrsStr(String(hrs));
         setShowModal(true);
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        // Validate parsed values before sending
+        const numInv = parseInt(invStr, 10);
+        const numHrs = parseFloat(hrsStr);
+        if (isNaN(numInv) || numInv < 1) { toast.error("Número de invitados inválido"); return; }
+        if (isNaN(numHrs) || numHrs < 0.5) { toast.error("Horas de duración inválidas"); return; }
+
+        const payload: FiestaRequest = { ...form, numInvitados: numInv, horasDuracion: numHrs };
         setSaving(true);
         try {
             if (editId !== null) {
-                await actualizarFiesta(editId, form);
+                await actualizarFiesta(editId, payload);
                 toast.success("Fiesta actualizada correctamente");
             } else {
-                await crearFiesta(form);
+                await crearFiesta(payload);
                 toast.success("Fiesta registrada correctamente");
             }
             setShowModal(false);
@@ -107,7 +127,9 @@ export default function FiestasPage() {
     };
 
     const totalIngresos = fiestas.reduce((s, f) => s + f.montoTotal, 0);
-    const { invLabel, hrsLabel } = getPricingLabel(form.numInvitados, form.horasDuracion);
+    const previewInv = parseInt(invStr, 10) || 0;
+    const previewHrs = parseFloat(hrsStr) || 0;
+    const { invLabel, hrsLabel } = getPricingLabel(previewInv, previewHrs);
 
     return (
         <div className="animate-in">
@@ -151,7 +173,10 @@ export default function FiestasPage() {
                     type="button"
                     className="btn btn-secondary"
                     style={{ alignSelf: "flex-end" }}
-                    onClick={() => void cargar(filtroAnio, filtroMes)}
+                    onClick={() => {
+                        const anioEfectivo = filtroMes !== "" && filtroAnio === "" ? currentYear : filtroAnio;
+                        void cargar(anioEfectivo, filtroMes);
+                    }}
                 >
                     Filtrar
                 </button>
@@ -184,15 +209,10 @@ export default function FiestasPage() {
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Contratante</th>
-                                    <th>Cédula</th>
-                                    <th>Fecha</th>
-                                    <th className="text-right">Invitados</th>
-                                    <th>Duración</th>
-                                    <th className="text-right">Monto Inv.</th>
-                                    <th className="text-right">Monto Hrs.</th>
-                                    <th className="text-right">Total</th>
-                                    <th></th>
+                                    <th>Contratante</th><th>Cédula</th><th>Fecha</th>
+                                    <th className="text-right">Invitados</th><th>Duración</th>
+                                    <th className="text-right">Monto Inv.</th><th className="text-right">Monto Hrs.</th>
+                                    <th className="text-right">Total</th><th></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -218,7 +238,6 @@ export default function FiestasPage() {
                         </table>
                     </div>
 
-                    {/* Mobile cards */}
                     <div className="mobile-card-list">
                         {fiestas.map(f => (
                             <div key={f.id} className="card card-padded animate-in" style={{ marginBottom: 12 }}>
@@ -233,22 +252,10 @@ export default function FiestasPage() {
                                     </div>
                                 </div>
                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: "0.82rem" }}>
-                                    <div>
-                                        <span style={{ color: "var(--text-tertiary)" }}>Fecha</span>
-                                        <div style={{ color: "var(--text)", fontWeight: 500 }}>{fmtDate(f.fechaFiesta)}</div>
-                                    </div>
-                                    <div>
-                                        <span style={{ color: "var(--text-tertiary)" }}>Invitados</span>
-                                        <div style={{ color: "var(--text)", fontWeight: 500 }}>{f.numInvitados.toLocaleString()}</div>
-                                    </div>
-                                    <div>
-                                        <span style={{ color: "var(--text-tertiary)" }}>Duración</span>
-                                        <div style={{ marginTop: 2 }}>{hoursBadge(f.horasDuracion)}</div>
-                                    </div>
-                                    <div>
-                                        <span style={{ color: "var(--text-tertiary)" }}>Total</span>
-                                        <div style={{ color: "var(--accent-hover)", fontWeight: 700, fontSize: "1rem", fontFamily: "'DM Mono',monospace" }}>{fmt(f.montoTotal)}</div>
-                                    </div>
+                                    <div><span style={{ color: "var(--text-tertiary)" }}>Fecha</span><div style={{ color: "var(--text)", fontWeight: 500 }}>{fmtDate(f.fechaFiesta)}</div></div>
+                                    <div><span style={{ color: "var(--text-tertiary)" }}>Invitados</span><div style={{ color: "var(--text)", fontWeight: 500 }}>{f.numInvitados.toLocaleString()}</div></div>
+                                    <div><span style={{ color: "var(--text-tertiary)" }}>Duración</span><div style={{ marginTop: 2 }}>{hoursBadge(f.horasDuracion)}</div></div>
+                                    <div><span style={{ color: "var(--text-tertiary)" }}>Total</span><div style={{ color: "var(--accent-hover)", fontWeight: 700, fontSize: "1rem", fontFamily: "'DM Mono',monospace" }}>{fmt(f.montoTotal)}</div></div>
                                 </div>
                             </div>
                         ))}
@@ -256,17 +263,12 @@ export default function FiestasPage() {
                 </>
             )}
 
-            {/* Create/Edit Modal */}
+            {/* Modal */}
             {showModal && (
-                <div
-                    className="modal-backdrop"
-                    onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
-                >
+                <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}>
                     <div className="modal">
                         <div className="modal-title">{editId !== null ? "Editar Fiesta" : "Nueva Fiesta"}</div>
-                        <div className="modal-sub">
-                            {editId !== null ? "Modifica los datos de la fiesta" : "Completa los datos para registrar la fiesta"}
-                        </div>
+                        <div className="modal-sub">{editId !== null ? "Modifica los datos de la fiesta" : "Completa los datos para registrar la fiesta"}</div>
                         <form onSubmit={e => void handleSubmit(e)}>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 20px" }}>
                                 <label className="form-label" style={{ gridColumn: "1 / -1" }}>
@@ -289,8 +291,12 @@ export default function FiestasPage() {
                                         type="number"
                                         required
                                         min={1}
-                                        value={form.numInvitados}
-                                        onChange={e => setForm({ ...form, numInvitados: parseInt(e.target.value, 10) || 1 })}
+                                        value={invStr}
+                                        onChange={e => {
+                                            setInvStr(e.target.value);
+                                            const n = parseInt(e.target.value, 10);
+                                            if (!isNaN(n)) setForm(f => ({ ...f, numInvitados: n }));
+                                        }}
                                     />
                                 </label>
                                 <label className="form-label">
@@ -301,8 +307,12 @@ export default function FiestasPage() {
                                         required
                                         min={0.5}
                                         step={0.5}
-                                        value={form.horasDuracion}
-                                        onChange={e => setForm({ ...form, horasDuracion: parseFloat(e.target.value) || 0.5 })}
+                                        value={hrsStr}
+                                        onChange={e => {
+                                            setHrsStr(e.target.value);
+                                            const n = parseFloat(e.target.value);
+                                            if (!isNaN(n)) setForm(f => ({ ...f, horasDuracion: n }));
+                                        }}
                                     />
                                 </label>
                                 <label className="form-label" style={{ gridColumn: "1 / -1" }}>
@@ -317,12 +327,8 @@ export default function FiestasPage() {
                                 </label>
                             </div>
 
-                            {form.numInvitados > 0 && (
-                                <div style={{
-                                    marginTop: 16, padding: "12px 14px",
-                                    background: "var(--surface-2)", border: "1px solid var(--border)",
-                                    borderRadius: "var(--radius-sm)", fontSize: "0.8rem", color: "var(--text-secondary)",
-                                }}>
+                            {previewInv > 0 && (
+                                <div style={{ marginTop: 16, padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
                                     <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>Vista previa del costo</div>
                                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                                         <span>Tarifa invitados:</span>
@@ -346,12 +352,9 @@ export default function FiestasPage() {
                 </div>
             )}
 
-            {/* Confirm delete modal */}
+            {/* Confirm delete */}
             {confirmDelete !== null && (
-                <div
-                    className="modal-backdrop"
-                    onClick={e => { if (e.target === e.currentTarget) setConfirmDelete(null); }}
-                >
+                <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setConfirmDelete(null); }}>
                     <div className="modal" style={{ maxWidth: 420 }}>
                         <div style={{ fontSize: "1.8rem", marginBottom: 12 }}>⚠️</div>
                         <div className="modal-title">¿Eliminar esta fiesta?</div>
@@ -360,15 +363,8 @@ export default function FiestasPage() {
                             {fmtDate(confirmDelete.fechaFiesta)}. Esta acción no se puede deshacer.
                         </div>
                         <div className="modal-footer">
-                            <button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(null)}>
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                className="btn btn-danger"
-                                disabled={deleting !== null}
-                                onClick={() => void handleDelete(confirmDelete)}
-                            >
+                            <button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(null)}>Cancelar</button>
+                            <button type="button" className="btn btn-danger" disabled={deleting !== null} onClick={() => void handleDelete(confirmDelete)}>
                                 {deleting === confirmDelete.id ? "Eliminando…" : "Sí, eliminar"}
                             </button>
                         </div>
