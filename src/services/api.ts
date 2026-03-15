@@ -55,7 +55,11 @@ export const crearFiesta = (data: FiestaRequest) =>
 export const actualizarFiesta = (id: string, data: FiestaRequest) =>
     http<FiestaResponse>(`${BASE}/fiestas/${id}`, {
         method: "PUT",
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+            ...data,
+            horasDuracion: Number(data.horasDuracion),
+            numInvitados: Number(data.numInvitados),
+        }),
     });
 
 export const eliminarFiesta = (id: string) =>
