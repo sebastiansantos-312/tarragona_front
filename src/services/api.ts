@@ -56,9 +56,10 @@ export const actualizarFiesta = (id: string, data: FiestaRequest) =>
     http<FiestaResponse>(`${BASE}/fiestas/${id}`, {
         method: "PUT",
         body: JSON.stringify({
-            ...data,
-            horasDuracion: Number(data.horasDuracion),
+            cedula: data.cedula,
             numInvitados: Number(data.numInvitados),
+            horasDuracion: parseFloat(String(data.horasDuracion)),
+            fechaFiesta: data.fechaFiesta,
         }),
     });
 

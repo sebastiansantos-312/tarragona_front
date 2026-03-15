@@ -62,7 +62,12 @@ export default function FiestasPage() {
 
     const openEdit = (f: FiestaResponse) => {
         setEditId(f.id);
-        setForm({ cedula: f.cedulaContratante, numInvitados: f.numInvitados, horasDuracion: f.horasDuracion, fechaFiesta: f.fechaFiesta });
+        setForm({
+            cedula: f.cedulaContratante,
+            numInvitados: Number(f.numInvitados),
+            horasDuracion: parseFloat(String(f.horasDuracion)),
+            fechaFiesta: f.fechaFiesta,
+        });
         setShowModal(true);
     };
 
@@ -285,7 +290,7 @@ export default function FiestasPage() {
                                         required
                                         min={1}
                                         value={form.numInvitados}
-                                        onChange={e => setForm({ ...form, numInvitados: Number(e.target.value) })}
+                                        onChange={e => setForm({ ...form, numInvitados: parseInt(e.target.value, 10) || 1 })}
                                     />
                                 </label>
                                 <label className="form-label">
@@ -297,7 +302,7 @@ export default function FiestasPage() {
                                         min={0.5}
                                         step={0.5}
                                         value={form.horasDuracion}
-                                        onChange={e => setForm({ ...form, horasDuracion: Number(e.target.value) })}
+                                        onChange={e => setForm({ ...form, horasDuracion: parseFloat(e.target.value) || 0.5 })}
                                     />
                                 </label>
                                 <label className="form-label" style={{ gridColumn: "1 / -1" }}>
