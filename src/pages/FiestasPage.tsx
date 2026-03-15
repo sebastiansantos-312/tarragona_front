@@ -78,7 +78,8 @@ export default function FiestasPage() {
                 toast.success("Fiesta registrada correctamente");
             }
             setShowModal(false);
-            void cargar(filtroAnio, filtroMes);
+            setEditId(null);
+            setTimeout(() => { void cargar(filtroAnio, filtroMes); }, 150);
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Error al guardar");
         } finally {
